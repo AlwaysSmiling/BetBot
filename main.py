@@ -111,29 +111,35 @@ class BettingManager(commands.Cog):
         [prefix]concludebet [betid] [a/b/c]. This will show the winners and their winnings.'''
         betid = det[0].lower()
         ans = det[1].lower()
-        statup = self.db.bets.update_one({'betid': betid}, {'$set': {'status': 'complete', 'result': ans}})
-        pool = self.db.pools.find_one({'betid': betid})
-        betsplaced = pool['users'][1:]
-        totalxp = 0
-        anspool = 0
-        for betplaced in betsplaced:
-            totalxp += betplaced[2]
-            if betplaced[3] == ans: 
-                anspool += betplaced[2]
-        users = []
-        for betplaced in betsplaced:
-            if betplaced[3] == ans:
-                reward = int(betplaced[2]*totalxp/anspool)
-                users.append((betplaced[0], reward))
-        mes = "Bet **" + betid + "** has concluded. Congratulations to those who won. This bet will not allow anymore entries. \n"
-        for user in users:
-            mes += "<@" + user[0] + "> has won *" + str(user[1]) + "* XP. \n"
-        if statup.matched_count == statup.modified_count == 1: 
-            print(f"{betid} successfully completed.")
-            await ctx.guild.get_channel(self.bettingchannelid).send(mes)
+        bet = self.db.bets.find_one({'betid': betid})
+        if bet['status'] != 'active':
+            await ctx.send(f"Invalid BetID, this bet is {bet['status']}.")
+        elif ans not in {'a', 'b', 'c'}:
+            await ctx.send("Invalid Result Choice. Please choose between [a/b/c].")
         else:
-            print(f"{betid} was not successfully completed. some error here.")
-            await ctx.send("Some error occured!")
+            statup = self.db.bets.update_one({'betid': betid}, {'$set': {'status': 'complete', 'result': ans}})
+            pool = self.db.pools.find_one({'betid': betid})
+            betsplaced = pool['users'][1:]
+            totalxp = 0
+            anspool = 0
+            for betplaced in betsplaced:
+                totalxp += betplaced[2]
+                if betplaced[3] == ans: 
+                    anspool += betplaced[2]
+            users = []
+            for betplaced in betsplaced:
+                if betplaced[3] == ans:
+                    reward = int(betplaced[2]*totalxp/anspool)
+                    users.append((betplaced[0], reward))
+            mes = "Bet **" + betid + "** has concluded. Congratulations to those who won. This bet will not allow anymore entries. \n"
+            for user in users:
+                mes += "<@" + user[0] + "> has won *" + str(user[1]) + "* XP. \n"
+            if statup.matched_count == statup.modified_count == 1: 
+                print(f"{betid} successfully completed.")
+                await ctx.guild.get_channel(self.bettingchannelid).send(mes)
+            else:
+                print(f"{betid} was not successfully completed. some error here.")
+                await ctx.send("Some error occured!")
         
 
     @commands.command(name="DistributeRewards", aliases=["dbr"], hidden=True)
@@ -143,32 +149,35 @@ class BettingManager(commands.Cog):
         [prefix]distributerewards [betid].'''
         bet = self.db.bets.find_one({'betid': betid})
         pool = self.db.pools.find_one({'betid': betid})
-        ans = bet['result']
-        betsplaced = pool['users'][1:]
-        totalxp = 0
-        anspool = 0
-        for betplaced in betsplaced:
-            totalxp += betplaced[2]
-            if betplaced[3] == ans:
-                anspool += betplaced[2]
-        giveusers = []
-        for betplaced in betsplaced:
-            if betplaced[3] == ans:
-                reward = int(betplaced[2]*totalxp/anspool)
-                giveusers.append((betplaced[0], reward))
-        punishusers = []
-        for betplaced in betsplaced:
-            if betplaced[3] == ans:
-                continue
-            else:
-                punishusers.append((betplaced[0], betplaced[2]))
-        mes = "Give-Xp Users: \n"
-        for user in giveusers:
-            mes += "!give-xp <"+str(user[0])+"> "+str(user[1])+" \n"
-        mes += "Remove-Xp Users: \n"
-        for user in punishusers:
-            mes += "!remove-xp <"+str(user[0])+"> "+str(user[1])+" \n"
-        await ctx.send(mes)
+        if bet['status'] != 'complete':
+            await ctx.send(f"Invalid BetID. This bet is still {bet['status']}")
+        else:
+            ans = bet['result']
+            betsplaced = pool['users'][1:]
+            totalxp = 0
+            anspool = 0
+            for betplaced in betsplaced:
+                totalxp += betplaced[2]
+                if betplaced[3] == ans:
+                    anspool += betplaced[2]
+            giveusers = []
+            for betplaced in betsplaced:
+                if betplaced[3] == ans:
+                    reward = int(betplaced[2]*totalxp/anspool)
+                    giveusers.append((betplaced[0], reward))
+            punishusers = []
+            for betplaced in betsplaced:
+                if betplaced[3] == ans:
+                    continue
+                else:
+                    punishusers.append((betplaced[0], betplaced[2]))
+            mes = "Give-Xp Users: \n"
+            for user in giveusers:
+                mes += "!give-xp <"+str(user[0])+"> "+str(user[1])+" \n"
+            mes += "Remove-Xp Users: \n"
+            for user in punishusers:
+                mes += "!remove-xp <"+str(user[0])+"> "+str(user[1])+" \n"
+            await ctx.send(mes)
 
     @commands.command(name="Bet", aliases=["bet", "b"])
     async def bet(self, ctx, *details):
