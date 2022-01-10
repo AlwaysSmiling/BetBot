@@ -180,10 +180,14 @@ class BettingManager(commands.Cog):
         userxp = self.userXp(ctx.author.id)
         #check bet validity
         bet = self.db.bets.find_one({'betid': betid})
-        if bet['status'] == 'inactive' or bet['status'] == 'complete':
+        if bet['status'] != 'active':
             await ctx.send("Bet Denied. Invalid BetId.")
+        elif choice not in {'a', 'b', 'c'}:
+            await ctx.send("Bet Denied. Invalid Bet Option.")
         elif bet['c'] == 'NA' and choice == 'c':
             await ctx.send("Bet Denied. Invalid Bet Option.")
+        elif amount < 1:
+            await ctx.send("Bet Denied. Invalid Amount of Xp Betted.")
         elif userxp == -1:
             await ctx.send("Sorry! Error occured while fetching your xp. please try again after some time.")
         elif amount > userxp:
@@ -213,8 +217,6 @@ async def on_ready():
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
     print('-------------------')
 
-
 bot.add_cog(BettingManager(bot))
-
 
 bot.run('TOKEN')
