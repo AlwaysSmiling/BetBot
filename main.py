@@ -229,7 +229,8 @@ class BettingManager(commands.Cog):
                 else:
                     await ctx.send("Failed to make bet. please contact BetMaster.")
 
-bot = commands.Bot(command_prefix=commands.when_mentioned_or(';;'))
+activityofbot = discord.Game(name=" poker with Smile, Noel, and Eve.")
+bot = commands.Bot(command_prefix=commands.when_mentioned_or(';;'), activity=activityofbot)
 
 @bot.event
 async def on_ready():
