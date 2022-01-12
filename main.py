@@ -178,7 +178,17 @@ class BettingManager(commands.Cog):
             for user in punishusers:
                 mes += "!remove-xp <"+str(user[0])+"> "+str(user[1])+" \n"
             await ctx.send(mes)
-
+    
+    @commands.command(name="UserXP", aliases=["ux"])
+    async def userXpcommand(self, ctx, *args):
+        '''A Better can check their current xp using this command.
+        [prefix]UserXP [optional user mention.]'''
+        if len(ctx.message.raw_mentions) == 0:
+            await ctx.send(f"The Current total xp that <@{ctx.author.id}> has is {self.userXp(ctx.author.id)}.")
+        else:
+            for mention in ctx.message.raw_mentions:
+                await ctx.send(f"The Current total xp that <@{mention}> has is {self.userXp(mention)}.")
+            
     @commands.command(name="Bet", aliases=["bet", "b"])
     async def bet(self, ctx, *details):
         '''A Better can place a bet using this command with betid in the following format.
