@@ -16,29 +16,41 @@ class BettingManager(commands.Cog):
         self.bettingchannelid = 928534924703723530
 
     def createembed(self, dict):
-        if dict['c'] == 'NA' and dict['result'] == 'NA':
-            mes = f"**{dict['title']}** \n Option 'a': **{dict['a']}** \n Option 'b': **{dict['b']}** \n Status: **{dict['status']}** \n You can use BetId **{dict['betid']}** to place bets."
-        elif dict['c'] == 'NA' and dict['result'] != 'NA':
-            mes = f"**{dict['title']}** \n Option 'a': **{dict['a']}** \n Option 'b': **{dict['b']}** \n Status: **{dict['status']}** \n Result: **{dict['result']}** \n BetId: **{dict['betid']}**"
-        elif dict['result'] == 'NA' and dict['c'] != 'NA':
-            mes = f"**{dict['title']}** \n Option 'a': **{dict['a']}** \n Option 'b': **{dict['b']}** \n Option 'c': **{dict['c']}** \n Status: **{dict['status']}** \n You can use BetId **{dict['betid']}** to place bets."
+        mes = f"**{dict['title']}** \n"
+        nom = 1
+        for option in dict['options']:
+            mes += f"Option '{nom}': **{option}** \n"
+            nom += 1 
+        if dict['result'] == 'NA':
+            mes += f"Status: **{dict['status']}** \n You can use BetId **{dict['betid']}** to place bets."
         else:
-            mes = f"**{dict['title']}** \n Option 'a': **{dict['a']}** \n Option 'b': **{dict['b']}** \n Option 'c': **{dict['c']}** \n Status: **{dict['status']}** \n Result: **{dict['result']}** \n BetId: **{dict['betid']}**"
+            mes += f"Status: **{dict['status']}** \n Result: **{dict['result']}** \n BetId: **{dict['betid']}**"
         return mes
 
-    def userXp(self, userid):
+    def userXp(self, userid=None, rank=None):
         leader = requests.get("https://mee6.xyz/api/plugins/levels/leaderboard/600343535711027242?page=0")
         if leader.status_code == 200:
             players = leader.json()['players']
-            for player in players:
-                if player['id'] == str(userid):
-                    return player['xp']
-            leader = requests.get("https://mee6.xyz/api/plugins/levels/leaderboard/600343535711027242?page=1")
-            if leader.status_code == 200:
-                players = leader.json()['players']
+            if rank:
+                for i, player in enumerate(players):
+                    if i+1 == int(rank):
+                        return player['xp']
+                leader = requests.get("https://mee6.xyz/api/plugins/levels/leaderboard/600343535711027242?page=1")
+                if leader.status_code == 200:
+                    players = leader.json()['players']
+                    for i, player in enumerate(players):
+                        if i-101 == int(rank):
+                            return player['xp']
+            elif userid:
                 for player in players:
                     if player['id'] == str(userid):
                         return player['xp']
+                leader = requests.get("https://mee6.xyz/api/plugins/levels/leaderboard/600343535711027242?page=1")
+                if leader.status_code == 200:
+                    players = leader.json()['players']
+                    for player in players:
+                        if player['id'] == str(userid):
+                            return player['xp']
         else:
             return -1
 
@@ -53,10 +65,9 @@ class BettingManager(commands.Cog):
     @commands.is_owner()
     async def setbet(self, ctx, *pos):
         '''A BetMaster can set bets using this command. the format is:
-        [prefix]setbet "[title]" "[unique betid]" "[option a]" "[option b]" "[optional option c]"
+        [prefix]setbet "[title]" "[unique betid]" "[options 1, 2, 3...]"
         the bot will reply with the betid on successful creation. Do not add a/b/c when setting options. they are handled by the bot.'''
-        if len(pos) == 4: bet = {'title': pos[0], 'status': 'inactive', 'betid': pos[1].lower(), 'a': pos[2], 'b': pos[3], 'c': 'NA', 'result': 'NA'}
-        else: bet = {'title': pos[0], 'status': 'inactive', 'betid': pos[1].lower(), 'a': pos[2], 'b': pos[3], 'c': pos[4], 'result': 'NA'}
+        bet = {'title': pos[0], 'status': 'inactive', 'betid': pos[1].lower(), 'options': pos[2:], 'result': 'NA'}
         bets = self.db['bets']
         pools = self.db['pools']
         betinsert = bets.insert_one(bet)
@@ -86,7 +97,7 @@ class BettingManager(commands.Cog):
         if statup.matched_count == statup.modified_count == 1:
             print(f"Bet {betid.lower()} has been set to active.")
             bet = self.db.bets.find_one({'betid': betid.lower()})
-            mess = self.createembed(bet) + "\n\n *When placing bets, enter choice as [a/b/c]*."
+            mess = self.createembed(bet) + "\n\n *When placing bets, enter choice as [1/2/3/4...]*."
             await ctx.guild.get_channel(self.bettingchannelid).send(mess)
         else:
             print(f"A Problem occured while setting bet {betid.lower()} to active.")
@@ -101,21 +112,22 @@ class BettingManager(commands.Cog):
         pool = self.db.pools.find_one({'betid': betid.lower()})
         mes = "**Bet Id**: **"+pool['betid']+"** \n"
         for user in pool['users']:
-            mes += "**" + user[1] + "** \t **" + str(user[2]) + "** \t \t **" + str(user[3]) + "** \n"
+            mes += "**" + user[1] + "** \t **" + str(user[2]) + "** \t **" + str(user[3]) + "** \n"
         await ctx.send(mes)
 
     @commands.command(name="ConcludeBet", aliases=["cb"], hidden=True)
     @commands.is_owner()
     async def concludebet(self, ctx, *det):
         '''A Betmaster can conclude a bet using this command with betid and result.
-        [prefix]concludebet [betid] [a/b/c]. This will show the winners and their winnings.'''
+        [prefix]concludebet [betid] [1/2/3/4....]. This will show the winners and their winnings.'''
         betid = det[0].lower()
-        ans = det[1].lower()
+        ans = int(det[1])
         bet = self.db.bets.find_one({'betid': betid})
+        nom = len(bet['options'])
         if bet['status'] != 'active':
             await ctx.send(f"Invalid BetID, this bet is {bet['status']}.")
-        elif ans not in {'a', 'b', 'c'}:
-            await ctx.send("Invalid Result Choice. Please choose between [a/b/c].")
+        elif ans not in range(1, nom+1):
+            await ctx.send(f"Invalid Result Choice. Please choose between 1 and {nom}.")
         else:
             statup = self.db.bets.update_one({'betid': betid}, {'$set': {'status': 'complete', 'result': ans}})
             pool = self.db.pools.find_one({'betid': betid})
@@ -178,32 +190,34 @@ class BettingManager(commands.Cog):
             for user in punishusers:
                 mes += "!remove-xp <"+str(user[0])+"> "+str(user[1])+" \n"
             await ctx.send(mes)
-    
+
     @commands.command(name="UserXP", aliases=["ux"])
     async def userXpcommand(self, ctx, *args):
         '''A Better can check their current xp using this command.
         [prefix]UserXP [optional user mention.]'''
         if len(ctx.message.raw_mentions) == 0:
-            await ctx.send(f"The Current total xp that <@{ctx.author.id}> has is {self.userXp(ctx.author.id)}.")
+            if len(args) == 1:
+                await ctx.send(f"The Current total xp that user ranked {args[0]} has is {self.userXp(rank=args[0])}.")
+            else:
+                await ctx.send(f"The Current total xp that <@{ctx.author.id}> has is {self.userXp(userid=ctx.author.id)}.")
         else:
             for mention in ctx.message.raw_mentions:
-                await ctx.send(f"The Current total xp that <@{mention}> has is {self.userXp(mention)}.")
-            
+                await ctx.send(f"The Current total xp that <@{mention}> has is {self.userXp(userid=mention)}.")
+
     @commands.command(name="Bet", aliases=["bet", "b"])
     async def bet(self, ctx, *details):
         '''A Better can place a bet using this command with betid in the following format.
         [prefix]bet [betid] [amount] [choice]. depending on your level and choice. a bet will be placed.'''
         betid = details[0].lower()
         amount = int(details[1])
-        choice = details[2].lower()
-        userxp = self.userXp(ctx.author.id)
+        choice = int(details[2])
+        userxp = self.userXp(userid=ctx.author.id)
         #check bet validity
         bet = self.db.bets.find_one({'betid': betid})
+        nom = len(bet['options'])
         if bet['status'] != 'active':
             await ctx.send("Bet Denied. Invalid BetId.")
-        elif choice not in {'a', 'b', 'c'}:
-            await ctx.send("Bet Denied. Invalid Bet Option.")
-        elif bet['c'] == 'NA' and choice == 'c':
+        elif choice not in range(1, nom+1):
             await ctx.send("Bet Denied. Invalid Bet Option.")
         elif amount < 1:
             await ctx.send("Bet Denied. Invalid Amount of Xp Betted.")
