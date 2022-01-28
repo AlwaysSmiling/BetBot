@@ -121,31 +121,44 @@ class BettingManager(commands.Cog):
         '''A Betmaster can conclude a bet using this command with betid and result.
         [prefix]concludebet [betid] [1/2/3/4....]. This will show the winners and their winnings.'''
         betid = det[0].lower()
-        ans = int(det[1])
+        ans = list(map(int, det[1:]))
         bet = self.db.bets.find_one({'betid': betid})
         nom = len(bet['options'])
         if bet['status'] != 'active':
             await ctx.send(f"Invalid BetID, this bet is {bet['status']}.")
-        elif ans not in range(1, nom+1):
-            await ctx.send(f"Invalid Result Choice. Please choose between 1 and {nom}.")
+        elif min(ans) < 1 or max(ans) > nom+1:
+            await ctx.send(f"Invalid Results Choice. Please choose between 1 and {nom}.")
         else:
-            statup = self.db.bets.update_one({'betid': betid}, {'$set': {'status': 'complete', 'result': ans}})
             pool = self.db.pools.find_one({'betid': betid})
             betsplaced = pool['users'][1:]
             totalxp = 0
-            anspool = 0
             for betplaced in betsplaced:
                 totalxp += betplaced[2]
-                if betplaced[3] == ans: 
-                    anspool += betplaced[2]
+            anspool = []
+            for answer in ans:
+                ansp = 0
+                for betplaced in betsplaced:
+                    if betplaced[3] == answer:
+                        ansp += betplaced[2]
+                anspool.append(ansp)
+
+            totalwinpool = sum(anspool)
+            totalwinxp = []
+            for ansp in anspool:
+                twx = (ansp/totalwinpool)*totalxp
+                totalwinxp.append(twx)
+            
             users = []
-            for betplaced in betsplaced:
-                if betplaced[3] == ans:
-                    reward = int(betplaced[2]*totalxp/anspool)
-                    users.append((betplaced[0], reward))
+            for i, answer in enumerate(ans):
+                for betplaced in betsplaced:
+                    if betplaced[3] == answer:
+                        reward = int(betplaced[2]*totalwinxp[i]/anspool[i])
+                        users.append((betplaced[0], reward))
+            
             mes = "Bet **" + betid + "** has concluded. Congratulations to those who won. This bet will not allow anymore entries. \n"
             for user in users:
                 mes += "<@" + user[0] + "> has won *" + str(user[1]) + "* XP. \n"
+            statup = self.db.bets.update_one({'betid': betid}, {'$set': {'status': 'complete', 'result': ans}})
             if statup.matched_count == statup.modified_count == 1: 
                 print(f"{betid} successfully completed.")
                 await ctx.guild.get_channel(self.bettingchannelid).send(mes)
@@ -167,19 +180,31 @@ class BettingManager(commands.Cog):
             ans = bet['result']
             betsplaced = pool['users'][1:]
             totalxp = 0
-            anspool = 0
             for betplaced in betsplaced:
                 totalxp += betplaced[2]
-                if betplaced[3] == ans:
-                    anspool += betplaced[2]
+            anspool = []
+            for answer in ans:
+                ansp = 0
+                for betplaced in betsplaced:
+                    if betplaced[3] == answer:
+                        ansp += betplaced[2]
+                anspool.append(ansp)
+
+            totalwinpool = sum(anspool)
+            totalwinxp = []
+            for ansp in anspool:
+                twx = (ansp/totalwinpool)*totalxp
+                totalwinxp.append(twx)
+            
             giveusers = []
-            for betplaced in betsplaced:
-                if betplaced[3] == ans:
-                    reward = int(betplaced[2]*totalxp/anspool)
-                    giveusers.append((betplaced[0], reward))
+            for i, answer in enumerate(ans):
+                for betplaced in betsplaced:
+                    if betplaced[3] == answer:
+                        reward = int(betplaced[2]*totalwinxp[i]/anspool[i])
+                        giveusers.append((betplaced[0], reward))
             punishusers = []
             for betplaced in betsplaced:
-                if betplaced[3] == ans:
+                if betplaced[3] in ans:
                     continue
                 else:
                     punishusers.append((betplaced[0], betplaced[2]))
