@@ -201,7 +201,7 @@ class BettingManager(commands.Cog):
                 for betplaced in betsplaced:
                     if betplaced[3] == answer:
                         reward = int(betplaced[2]*totalwinxp[i]/anspool[i])
-                        giveusers.append((betplaced[0], reward))
+                        giveusers.append((betplaced[0], reward - betplaced[2]))
             punishusers = []
             for betplaced in betsplaced:
                 if betplaced[3] in ans:
