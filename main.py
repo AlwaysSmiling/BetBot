@@ -229,6 +229,21 @@ class BettingManager(commands.Cog):
             for mention in ctx.message.raw_mentions:
                 await ctx.send(f"The Current total xp that <@{mention}> has is {self.userXp(userid=mention)}.")
 
+    @commands.command(name="ActiveBets", aliases=["activebets", "ab"])
+    async def activebets(self, ctx):
+        '''Any User can use this command to check currently active bets and total pool.
+        [prefix]activebets'''
+        mess = ''
+        for bet in self.db.bets.find({'status': 'active'}):
+            mess += f"**Bet Title:** {bet['title']}\n**BetId:** {bet['betid']}\n"
+            pool = self.db.pools.find_one({'betid':bet['betid']})
+            betsplaced = pool['users'][1:]
+            totalpoolvalue = 0
+            for betplaced in betsplaced:
+                totalpoolvalue += betplaced[2]
+            mess += f"**Total Pool Size:** {totalpoolvalue}\n--------------------\n"
+        await ctx.send(mess)
+    
     @commands.command(name="Bet", aliases=["bet", "b"])
     async def bet(self, ctx, *details):
         '''A Better can place a bet using this command with betid in the following format.
