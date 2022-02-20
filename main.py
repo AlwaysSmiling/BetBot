@@ -1,7 +1,8 @@
 import discord
-from discord.ext import commands, tasks
+from discord.ext import commands
 import pymongo
 import requests
+from pollbot import PollBot
 
 class BettingManager(commands.Cog):
     def __init__(self, bot):
@@ -292,5 +293,6 @@ async def on_ready():
     print('-------------------')
 
 bot.add_cog(BettingManager(bot))
+bot.add_cog(PollBot(bot))
 
 bot.run('TOKEN')
